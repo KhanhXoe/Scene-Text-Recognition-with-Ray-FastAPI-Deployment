@@ -1,0 +1,42 @@
+# system files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# venv
+.venv/
+venv/
+ENV/
+
+# logs
+*.log
+
+# Jupyter Notebook checkpoint
+.ipynb_checkpoints/
+
+# cache
+.cache/
+*.egg-info/
+
+
+# Experiment Outputs
+runs/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+*.swp
+*~
+
+models/
+
+object_detection.py
