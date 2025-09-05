@@ -9,16 +9,15 @@ class CRNN(nn.Module):
     ):
         super(CRNN, self).__init__()
 
-        backbone = timm.create_model("resnet34", in_chans=1, pretrained=True)
+        backbone = timm.create_model("resnet152", in_chans=1, pretrained=True)
         modules = list(backbone.children())[:-2]
         modules.append(nn.AdaptiveAvgPool2d((1, None)))
         self.backbone = nn.Sequential(*modules)
 
-        # Unfreeze the last few layers
         for parameter in self.backbone[-unfreeze_layers:].parameters():
             parameter.requires_grad = True
 
-        self.mapSeq = nn.Sequential(nn.Linear(512, 512), nn.ReLU(), nn.Dropout(dropout))
+        self.mapSeq = nn.Sequential(nn.Linear(2048, 512), nn.ReLU(), nn.Dropout(dropout))
 
         self.gru = nn.GRU(
             512,

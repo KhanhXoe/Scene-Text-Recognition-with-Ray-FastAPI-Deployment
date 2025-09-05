@@ -10,10 +10,10 @@ from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 from crnn_model_structure import CRNN
 
-#DET_MODEL_PATH = "../models/yolo11s.pt"
-#REG_MODEL_PATH = "../models/text_recognition_model.pt"
+DET_MODEL_PATH = "/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_detection_model.pt"
+REG_MODEL_PATH = "/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_recognition_model.pth"
 
-CHARS = "0123456789abcdefghijklmnopqrstuvwxyz-"
+CHARS = "0123456789abcdefghijklmnopqrstuvwxyzéñ-"
 CHAR_TO_IDX = {char: idx + 1 for idx, char in enumerate(sorted(CHARS))}
 IDX_TO_CHAR = {idx: char for char, idx in CHAR_TO_IDX.items()}
 
@@ -120,4 +120,17 @@ def draw_predictions(image, predictions):
             )
         return Image.fromarray(annotator.result())
 
-    
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+det_model, reg_model = load_model(DET_MODEL_PATH, REG_MODEL_PATH, DEVICE)
+det_model.eval()
+reg_model.eval()
+img_path = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/icdar2003/SceneTrialTrain/ryoungt_03.09.2002/PICT0029.JPG"
+#print(text_detection(det_model, img_path, DEVICE))
+
+predictions = inference(det_model, reg_model, img_path=img_path, device=DEVICE)
+anotated_img = draw_predictions(Image.open(img_path), predictions)
+anotated_img.save("annotated_output.png")
+print("Saved result to annotated_output.png")
+
+

@@ -16,10 +16,10 @@ from ultralytics.utils.plotting import Annotator, colors
 
 app = FastAPI()
 
-TEXT_DET_MODEL_PATH = "../models/yolo11s.pt"
-OCR_MODEL_PATH      = "../models/text_recognition_model.pt"
+TEXT_DET_MODEL_PATH = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_detection_model.pt"
+OCR_MODEL_PATH      = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_recognition_model.pth"
 
-CHARS = "0123456789abcdefghijklmnopqrstuvwxyz-"
+CHARS = "0123456789abcdefghijklmnopqrstuvwxyzéñ-"
 CHAR_TO_IDX = {char: idx + 1 for idx, char in enumerate(sorted(CHARS))}
 IDX_TO_CHAR = {idx: char for char, idx in CHAR_TO_IDX.items()}
 
@@ -201,7 +201,7 @@ reg_model = CRNN(
     dropout=DROPOUT_PROB,
     unfreeze_layers=UNFREEZE_LAYERS,
 )
-reg_model.load_state_dict(torch.load(OCR_MODEL_PATH))
+reg_model.load_state_dict(torch.load(OCR_MODEL_PATH, weights_only= False))
 reg_model.eval()
 
 entrypoint = APIIngress.bind(
