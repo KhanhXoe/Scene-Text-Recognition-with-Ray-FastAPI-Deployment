@@ -125,7 +125,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 det_model, reg_model = load_model(DET_MODEL_PATH, REG_MODEL_PATH, DEVICE)
 det_model.eval()
 reg_model.eval()
-img_path = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/icdar2003/SceneTrialTrain/ryoungt_03.09.2002/PICT0029.JPG"
+img_path = r"image.jpg"
 #print(text_detection(det_model, img_path, DEVICE))
 
 predictions = inference(det_model, reg_model, img_path=img_path, device=DEVICE)
