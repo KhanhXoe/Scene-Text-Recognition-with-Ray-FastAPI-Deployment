@@ -68,11 +68,9 @@ class APIIngress:
     async def detect_upload(self, file: UploadFile = File(...)):
         """Endpoint for processing uploaded image files"""
         try:
-            # Validate file type
             if not file.content_type.startswith("image/"):
                 raise HTTPException(status_code=400, detail="File must be an image")
 
-            # Read file content
             content = await file.read()
             return await self.process_image(content)
 
