@@ -42,18 +42,14 @@ class APIIngress:
                 temp_file_path = temp_file.name
 
             predictions = await self.handle.process_image.remote(temp_file_path)
-
             image = Image.open(temp_file_path)
             annotated_image = await self.handle.draw_predictions.remote(
                 image, predictions
             )
 
-            # Convert annotated image to bytes
             file_stream = BytesIO()
             annotated_image.save(file_stream, format="PNG")
             file_stream.seek(0)
-
-            # Clean up the temporary file
             os.unlink(temp_file_path)
 
             return Response(
@@ -159,11 +155,8 @@ class OCRService:
 
         for bbox, class_name, confidence, text in predictions:
             x1, y1, x2, y2 = [int(coord) for coord in bbox]
-
             color = colors(hash(class_name) % 20, True)
-
             label = f"{class_name[:3]}{confidence:.1f}:{text}"
-
             annotator.box_label(
                 [x1, y1, x2, y2], label, color=color, txt_color=(255, 255, 255)
             )

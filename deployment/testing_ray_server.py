@@ -90,7 +90,6 @@ class ObjectDetection:
 
     def detect(self, image_path: str):
         try:
-            # Perform object detection
             results = self.model(image_path, verbose=False)[0]
             return (
                 results.boxes.xyxy.tolist(),
