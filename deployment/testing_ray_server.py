@@ -24,36 +24,28 @@ class APIIngress:
     async def process_image(self, image_data: bytes) -> Response:
         """Common image processing logic for both URL and file upload"""
         try:
-            # Create a temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
                 temp_file.write(image_data)
                 temp_file_path = temp_file.name
 
-            # Request detection results using the temp file path
             bboxes, classes, names, confs = await self.handle.detect.remote(
                 temp_file_path
             )
 
-            # Open the image from the temp file
             image = Image.open(temp_file_path)
             image_array = np.array(image)
 
-            # Initialize Annotator
             annotator = Annotator(image_array, font="Arial.ttf", pil=False)
 
-            # Draw boxes and labels
             for box, cls, conf in zip(bboxes, classes, confs):
                 c = int(cls)
                 label = f"{names[c]} {conf:.2f}"
                 annotator.box_label(box, label, color=colors(c, True))
 
-            # Convert annotated image back to bytes
             annotated_image = Image.fromarray(annotator.result())
             file_stream = BytesIO()
             annotated_image.save(file_stream, format="PNG")
             file_stream.seek(0)
-
-            # Clean up the temporary file
             os.unlink(temp_file_path)
 
             return Response(content=file_stream.getvalue(), media_type="image/png")
