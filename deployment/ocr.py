@@ -16,20 +16,19 @@ from ultralytics.utils.plotting import Annotator, colors
 
 app = FastAPI()
 
-TEXT_DET_MODEL_PATH = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_detection_model.pt"
-OCR_MODEL_PATH      = r"/home/khanhxoe/PersonalProjects/SceneTextRecognition/Solution/models/text_recognition_model.pth"
+TEXT_DET_MODEL_PATH = r"/home/khanh/workdir/OCR/Scene-Text-Recognition-with-Ray-FastAPI-Deployment/AI_Models/best.pt"
+OCR_MODEL_PATH      = r"/home/khanh/workdir/OCR/Scene-Text-Recognition-with-Ray-FastAPI-Deployment/AI_Models/crnn_best.pth"
 
-CHARS = "0123456789abcdefghijklmnopqrstuvwxyzéñ-"
+CHARS = "!#$%&()-/0123456789:?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]abcdefghijklmnopqrstuvwxyz"
 CHAR_TO_IDX = {char: idx + 1 for idx, char in enumerate(sorted(CHARS))}
 IDX_TO_CHAR = {idx: char for char, idx in CHAR_TO_IDX.items()}
 
 HIDDEN_SIZE = 256
 N_LAYERS = 3
 DROPOUT_PROB = 0.2
-UNFREEZE_LAYERS = 3
+UNFREEZE_LAYERS = 12
 
-
-@serve.deployment(num_replicas=1)
+@serve.deployment(num_replicas=2)
 @serve.ingress(app)
 class APIIngress:
     def __init__(self, ocr_handle):
@@ -91,8 +90,8 @@ class APIIngress:
 
 
 @serve.deployment(
-    ray_actor_options={"num_gpus": 0.5, "num_cpus": 4},
-    autoscaling_config={"min_replicas": 1, "max_replicas": 2},
+    ray_actor_options={"num_gpus": 0.5, "num_cpus": 2},
+    autoscaling_config={"min_replicas": 1, "max_replicas": 3},
 )
 class OCRService:
     def __init__(self, reg_model, det_model):
@@ -168,8 +167,6 @@ class OCRService:
             annotator.box_label(
                 [x1, y1, x2, y2], label, color=color, txt_color=(255, 255, 255)
             )
-
-        # Convert back to PIL Image
         return Image.fromarray(annotator.result())
 
     def decode(self, encoded_sequences, idx_to_char, blank_char="-"):
@@ -178,22 +175,19 @@ class OCRService:
         for seq in encoded_sequences:
             decoded_label = []
             prev_char = None
-
             for token in seq:
                 if token != 0:
                     char = idx_to_char[token.item()]
                     if char != blank_char:
                         if char != prev_char or prev_char == blank_char:
                             decoded_label.append(char)
-                    prev_char = char  # Update previous character
-
+                    prev_char = char
             decoded_sequences.append("".join(decoded_label))
 
         return decoded_sequences
 
 
 det_model = YOLO(TEXT_DET_MODEL_PATH)
-
 reg_model = CRNN(
     vocab_size=len(CHARS),
     hidden_size=HIDDEN_SIZE,

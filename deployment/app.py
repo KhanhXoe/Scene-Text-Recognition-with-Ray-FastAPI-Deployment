@@ -6,7 +6,6 @@ from PIL import Image
 
 st.set_page_config(layout="wide")
 
-
 def format_predictions(predictions_str):
     """Format predictions string into readable JSON"""
     try:
