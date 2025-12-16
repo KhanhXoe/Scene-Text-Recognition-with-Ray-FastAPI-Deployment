@@ -1,0 +1,17 @@
+proxy_location: HeadOnly
+http_options:
+  host: "0.0.0.0"
+  port: 8000
+grpc_options:
+  port: 9000
+  grpc_servicer_functions: []
+applications:
+  - name: default
+    route_prefix: /
+    import_path: ocr:entrypoint
+    runtime_env: {}
+    deployments:
+      - name: OCRService
+        num_replicas: 1
+      - name: APIIngress
+        num_replicas: 1

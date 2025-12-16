@@ -5,7 +5,7 @@ from io import BytesIO
 import numpy as np
 import requests
 import torch
-from scripts.crnn_model_structure import CRNN
+from CRNN_Models.crnn_model_structure import CRNN
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from PIL import Image
@@ -16,10 +16,10 @@ from ultralytics.utils.plotting import Annotator, colors
 
 app = FastAPI()
 
-TEXT_DET_MODEL_PATH = r"/home/khanh/workdir/OCR/Scene-Text-Recognition-with-Ray-FastAPI-Deployment/AI_Models/best.pt"
-OCR_MODEL_PATH      = r"/home/khanh/workdir/OCR/Scene-Text-Recognition-with-Ray-FastAPI-Deployment/AI_Models/crnn_best.pth"
+TEXT_DET_MODEL_PATH = r"best.pt"
+OCR_MODEL_PATH      = r"crnn_best.pth"
 
-CHARS = "!#$%&()-/0123456789:?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]abcdefghijklmnopqrstuvwxyz"
+CHARS = "-!#$%&()/0123456789:?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]abcdefghijklmnopqrstuvwxyz" 
 CHAR_TO_IDX = {char: idx + 1 for idx, char in enumerate(sorted(CHARS))}
 IDX_TO_CHAR = {idx: char for char, idx in CHAR_TO_IDX.items()}
 
@@ -35,9 +35,8 @@ class APIIngress:
         self.handle = ocr_handle
 
     async def process_image(self, image_data: bytes) -> Response:
-        """Common image processing logic for both URL and file upload"""
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
                 temp_file.write(image_data)
                 temp_file_path = temp_file.name
 
@@ -48,22 +47,26 @@ class APIIngress:
             )
 
             file_stream = BytesIO()
-            annotated_image.save(file_stream, format="PNG")
+            annotated_image.save(file_stream, format="JPEG")
             file_stream.seek(0)
             os.unlink(temp_file_path)
 
             return Response(
                 content=file_stream.getvalue(),
-                media_type="image/png",
+                media_type="image/jpeg",
                 headers={"X-Predictions": str(predictions)},
             )
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
 
-    @app.get("/ocr")
+    @app.get("/")
+    async def root(self):
+        """Simple health check endpoint."""
+        return {"status": "ok", "service": "OCR-Detection-Service", "model_loaded": True}
+
+    @app.post("/detect")
     async def ocr_url(self, image_url: str):
-        """Endpoint for processing images from URLs"""
         try:
             response = requests.get(image_url)
             response.raise_for_status()
@@ -71,9 +74,8 @@ class APIIngress:
         except requests.RequestException as e:
             raise HTTPException(status_code=400, detail=f"Error downloading image: {e}")
 
-    @app.post("/ocr/upload")
+    @app.post("/detect/upload")
     async def ocr_upload(self, file: UploadFile = File(...)):
-        """Endpoint for processing uploaded image files"""
         try:
             if not file.content_type.startswith("image/"):
                 raise HTTPException(status_code=400, detail="File must be an image")
@@ -86,15 +88,26 @@ class APIIngress:
 
 
 @serve.deployment(
-    ray_actor_options={"num_gpus": 0.5, "num_cpus": 2},
+    ray_actor_options={"num_gpus": 1, "num_cpus": 2},
     autoscaling_config={"min_replicas": 1, "max_replicas": 3},
 )
 class OCRService:
-    def __init__(self, reg_model, det_model):
+    def __init__(self, TEXT_DET_MODEL_PATH: None, OCR_MODEL_PATH: None):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.reg_model = reg_model.to(self.device)
-        self.det_model = det_model.to(self.device)
+        det_model = YOLO(TEXT_DET_MODEL_PATH).to("cuda")
+        self.reg_model = CRNN(
+            vocab_size=len(CHARS),
+            hidden_size=HIDDEN_SIZE,
+            n_layers=N_LAYERS,
+            dropout=DROPOUT_PROB,
+            unfreeze_layers=UNFREEZE_LAYERS,
+        )
 
+        checkpoints = torch.load(OCR_MODEL_PATH, map_location="cuda")
+        self.reg_model.load_state_dict(checkpoints['model_state_dict'])
+        self.reg_model.eval()
+        self.reg_model = self.reg_model.to(self.device)
+        self.det_model = det_model.to(self.device)
         self.transform = transforms.Compose(
             [
                 transforms.Resize((100, 420)),
@@ -115,7 +128,6 @@ class OCRService:
         )
 
     def text_recognition(self, img):
-        """Recognize text in the cropped image"""
         transformed_image = self.transform(img).unsqueeze(0).to(self.device)
         with torch.no_grad():
             logits = self.reg_model(transformed_image).cpu()
@@ -156,7 +168,7 @@ class OCRService:
         for bbox, class_name, confidence, text in predictions:
             x1, y1, x2, y2 = [int(coord) for coord in bbox]
             color = colors(hash(class_name) % 20, True)
-            label = f"{class_name[:3]}{confidence:.1f}:{text}"
+            label = f"{class_name[:3]}{confidence:.1f}: {text}"
             annotator.box_label(
                 [x1, y1, x2, y2], label, color=color, txt_color=(255, 255, 255)
             )
@@ -179,21 +191,9 @@ class OCRService:
 
         return decoded_sequences
 
-
-det_model = YOLO(TEXT_DET_MODEL_PATH)
-reg_model = CRNN(
-    vocab_size=len(CHARS),
-    hidden_size=HIDDEN_SIZE,
-    n_layers=N_LAYERS,
-    dropout=DROPOUT_PROB,
-    unfreeze_layers=UNFREEZE_LAYERS,
-)
-reg_model.load_state_dict(torch.load(OCR_MODEL_PATH, weights_only= False))
-reg_model.eval()
-
 entrypoint = APIIngress.bind(
     OCRService.bind(
-        reg_model=reg_model,
-        det_model=det_model,
+        TEXT_DET_MODEL_PATH=TEXT_DET_MODEL_PATH,
+        OCR_MODEL_PATH=OCR_MODEL_PATH,
     )
-)
+) 

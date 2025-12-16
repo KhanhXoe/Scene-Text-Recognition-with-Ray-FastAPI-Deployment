@@ -22,9 +22,8 @@ class APIIngress:
         self.handle = object_detection_handle
 
     async def process_image(self, image_data: bytes) -> Response:
-        """Common image processing logic for both URL and file upload"""
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
                 temp_file.write(image_data)
                 temp_file_path = temp_file.name
 
@@ -44,12 +43,11 @@ class APIIngress:
 
             annotated_image = Image.fromarray(annotator.result())
             file_stream = BytesIO()
-            annotated_image.save(file_stream, format="PNG")
+            annotated_image.save(file_stream, format="jpeg")
             file_stream.seek(0)
             os.unlink(temp_file_path)
 
-            return Response(content=file_stream.getvalue(), media_type="image/png")
-
+            return Response(content=file_stream.getvalue(), media_type="image/jpeg")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
 
@@ -81,8 +79,8 @@ class APIIngress:
 
 
 @serve.deployment(
-    ray_actor_options={"num_gpus": 0.2, "num_cpus": 2},
-    autoscaling_config={"min_replicas": 1, "max_replicas": 4},
+    ray_actor_options={"num_gpus": 0.5, "num_cpus": 2},
+    autoscaling_config={"min_replicas": 1, "max_replicas": 2},
 )
 class ObjectDetection:
     def __init__(self):
@@ -104,6 +102,5 @@ class ObjectDetection:
             raise HTTPException(status_code=415, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error processing image: {e}")
-
 
 entrypoint = APIIngress.bind(ObjectDetection.bind())

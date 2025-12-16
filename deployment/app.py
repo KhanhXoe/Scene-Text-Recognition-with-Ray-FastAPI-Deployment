@@ -32,7 +32,7 @@ def format_predictions(predictions_str):
 def process_image_url(url, api_url="http://localhost:8000"):
     """Process image from URL using the OCR API"""
     try:
-        response = requests.get(f"{api_url}/ocr", params={"image_url": url})
+        response = requests.get(f"{api_url}/detect", params={"image_url": url})
         response.raise_for_status()
 
         predictions = response.headers.get("X-Predictions", "[]")
@@ -57,7 +57,7 @@ def process_uploaded_file(file, api_url="http://localhost:8000"):
         files = {
             "file": ("image.png", file, "image/png")
             }
-        response = requests.post(f"{api_url}/ocr/upload", files=files)
+        response = requests.post(f"{api_url}/detect/upload", files=files)
 
         if response.status_code != 200:
             error_detail = response.json().get("detail", "Unknown error")
@@ -104,7 +104,7 @@ def main():
                 try:
                     response = requests.get(image_url)
                     original_image = Image.open(BytesIO(response.content))
-                    st.image(original_image, use_container_width=True)
+                    st.image(original_image, width='content')
                 except:
                     st.error("Could not load image from URL")
 
@@ -117,7 +117,7 @@ def main():
                 image, predictions = process_image_url(image_url, api_url)
                 if image:
                     with col2:
-                        st.image(image, use_container_width=True)
+                        st.image(image, width='content')
 
                     st.subheader("Detected Text")
                     st.code(format_predictions(predictions), language="text")
@@ -142,7 +142,7 @@ def main():
 
             with col1:
                 st.subheader("Original Image")
-                st.image(uploaded_file, use_container_width=True)
+                st.image(uploaded_file, width='content')
 
             with col2:
                 st.subheader("Processed Image")
@@ -153,7 +153,7 @@ def main():
                     image, predictions = process_uploaded_file(uploaded_file, api_url)
                     if image:
                         with col2:
-                            st.image(image, use_container_width=True)
+                            st.image(image, width='content')
 
                         st.subheader("Detected Text")
                         st.code(format_predictions(predictions), language="text")

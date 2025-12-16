@@ -2,7 +2,6 @@ import timm
 import torch.nn as nn
 import torch
 
-
 class CRNN(nn.Module):
     def __init__(
         self, vocab_size, hidden_size, n_layers, dropout=0.2, unfreeze_layers=3
@@ -43,5 +42,4 @@ class CRNN(nn.Module):
         x = self.layer_norm(x)
         x = self.out(x)
         x = x.permute(1, 0, 2)
-
         return x
